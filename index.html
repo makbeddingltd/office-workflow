@@ -212,7 +212,7 @@
 </head>
 <body>
 <div id="app">Loading…</div>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 const SUPABASE_URL = 'https://whyzvlffpcffiddbtshv.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndoeXp2bGZmcGNmZmlkZGJ0c2h2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg5NDI4MzcsImV4cCI6MjEwNDUxODgzN30.yK3RBxxB5msfdUO0oRQCuLPpYLn0_5zJein5ANx2zS0';
@@ -1151,21 +1151,31 @@ async function onSignedIn(session) {
   render();
 }
 
+function showFatalError(msg) {
+  document.getElementById('app').innerHTML = `<div class="login-screen"><div class="login-panel"><strong>Something went wrong loading the app:</strong><div class="mono" style="margin-top:10px;font-size:12px;white-space:pre-wrap">${msg}</div><div class="muted" style="margin-top:14px">Screenshot this and send it over — it tells us exactly what to fix.</div></div></div>`;
+}
+window.addEventListener('error', (e) => { try { showFatalError(e.message + (e.filename ? ' (' + e.filename + ':' + e.lineno + ')' : '')); } catch(_) {} });
+window.addEventListener('unhandledrejection', (e) => { try { showFatalError(String(e.reason && e.reason.message || e.reason)); } catch(_) {} });
+
 async function boot() {
-  if (!window.supabase) { document.getElementById('app').innerHTML = '<div class="login-screen"><div class="login-panel">Could not load the Supabase library. Check your internet connection and reload.</div></div>'; return; }
-  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  dbReady = true;
-  render();
-  const { data: { session } } = await supabase.auth.getSession();
-  if (session) await onSignedIn(session);
-  else render();
+  try {
+    if (!window.supabase) { showFatalError('The Supabase library did not load from the CDN. Check your internet connection and reload.'); return; }
+    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    dbReady = true;
+    render();
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) await onSignedIn(session);
+    else render();
 
-  supabase.auth.onAuthStateChange((event, session) => {
-    if (event === 'SIGNED_OUT') { S.role = null; S.currentPerson = null; S.people = []; S.tasks = []; render(); }
-  });
+    supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT') { S.role = null; S.currentPerson = null; S.people = []; S.tasks = []; render(); }
+    });
 
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    }
+  } catch (e) {
+    showFatalError(e.message);
   }
 }
 boot();
